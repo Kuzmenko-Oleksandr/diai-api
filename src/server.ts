@@ -52,8 +52,12 @@ void server.register(swagger, {
         },
         servers: [
             {
-                url: BASE_URL,
-                description: IS_PRODUCTION ? "Production" : "Local development",
+                url: "http://localhost:3000",
+                description: "Local",
+            },
+            {
+                url: process.env.BASE_URL || "https://example.com",
+                description: "Production",
             },
         ],
     },
