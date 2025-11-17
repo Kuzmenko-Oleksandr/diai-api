@@ -5,9 +5,9 @@ import type { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import dotenv from "dotenv";
 import Fastify from "fastify";
 import { IS_PRODUCTION } from "@/common/constants/is-production";
+import { getCloseWithGraceListener } from "@/common/utils/get-close-with-grace-listener";
 import { prisma } from "@/db";
 import { initDatabase } from "@/db/helpers/init-database";
-import { getCloseWithGraceListener } from "@/common/utils/get-close-with-grace-listener";
 import { app } from ".";
 
 dotenv.config();
@@ -82,6 +82,7 @@ void server.ready((err) => {
 
 	server.log.info("All routes loaded");
 	server.log.info(`Server listening on port ${Number(process.env.PORT ?? 3000)}`);
+	server.log.info(`Documentation: ${process.env.BASE_URL}/documentation`);
 
 	for (const route of server.printRoutes().split("\n")) {
 		server.log.info(`Registered route: ${route}`);
