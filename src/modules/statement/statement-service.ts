@@ -1,14 +1,19 @@
 import { httpErrors } from "@fastify/sensible";
+import { StatementStatus } from "@prisma/client";
+import { hasTimePassed } from "@/common/utils/has-time-passed";
 import { prisma } from "@/db";
 import { AiRecognitionService } from "../ai-recognition";
 import { CarService } from "../car";
-import type { CreateStatementRequestDto, CreateStatementResponseDto } from "./types";
+import type {
+	ConfirmStatementRequestDto,
+	CreateStatementRequestDto,
+	CreateStatementResponseDto,
+} from "./types";
+
+const MINUTES_INTERVAL = 5;
 
 export class StatementService {
-	public static async create(
-		statement: CreateStatementRequestDto,
-	): Promise<CreateStatementResponseDto> {
-		const { images } = statement;
+	private static async getValidatedPlate(images: CreateStatementRequestDto["images"]) {
 		const { results } = await AiRecognitionService.getPlateDetails(images);
 
 		const isPlateRecognized = results.every((result) => result.success);
@@ -25,6 +30,81 @@ export class StatementService {
 		}
 
 		const [{ plate }] = results;
+
+		return plate;
+	}
+
+	private static async getValidatedConfirmAttempt(
+		statement: ConfirmStatementRequestDto,
+		plate: string,
+	) {
+		const { statementId, userId, createdAt, latitude, longitude } = statement;
+
+		const existingStatement = await prisma.statement.findFirst({
+			where: {
+				id: statementId,
+				status: StatementStatus.PENDING,
+			},
+			include: {
+				attempts: {
+					orderBy: {
+						createdAt: "asc",
+					},
+					where: {
+						error: null,
+					},
+				},
+			},
+		});
+
+		if (!existingStatement) {
+			throw httpErrors.notFound("Заяву, яка очікує на підтвердження новими фото, не знайдено");
+		}
+
+		if (existingStatement.userId !== userId) {
+			throw httpErrors.forbidden("Тільки автор заяви може підтвердити її");
+		}
+
+		const [firstAttempt] = existingStatement.attempts;
+
+		const canConfirm = hasTimePassed({
+			startDate: new Date(firstAttempt.createdAt),
+			endDate: new Date(createdAt),
+			milliseconds: 1000 * 60 * MINUTES_INTERVAL,
+		});
+
+		if (!canConfirm) {
+			throw httpErrors.tooManyRequests(
+				`Надіслати повторні фото можна не менше ніж через ${MINUTES_INTERVAL} хвилин`,
+			);
+		}
+
+		const isStatementDataEqual =
+			latitude === firstAttempt.latitude &&
+			longitude === firstAttempt.longitude &&
+			plate === firstAttempt.plate;
+
+		if (isStatementDataEqual) {
+			throw httpErrors.badRequest("Дані для підтвердження заяви повинні збігатись");
+		}
+
+		const confirmAttempt = await prisma.statementAttempt.create({
+			data: {
+				statementId: existingStatement.id,
+				latitude: statement.latitude,
+				longitude: statement.longitude,
+				plate,
+			},
+		});
+
+		return confirmAttempt;
+	}
+
+	public static async create(
+		statement: CreateStatementRequestDto,
+	): Promise<CreateStatementResponseDto> {
+		const { images } = statement;
+		const plate = await StatementService.getValidatedPlate(images);
 		const car = await CarService.getDetails(plate);
 
 		//TODO: add ai violation recognition
@@ -43,14 +123,35 @@ export class StatementService {
 
 		const [{ violation }] = createdStatement.attempts;
 
-		console.log({
+		return {
 			...createdStatement,
 			car,
 			violation,
+		};
+	}
+
+	public static async confirm(
+		statement: ConfirmStatementRequestDto,
+	): Promise<CreateStatementResponseDto> {
+		const { images, statementId } = statement;
+		const plate = await StatementService.getValidatedPlate(images);
+		const car = await CarService.getDetails(plate);
+
+		const confirmAttempt = await StatementService.getValidatedConfirmAttempt(statement, plate);
+
+		const updatedStatement = await prisma.statement.update({
+			where: {
+				id: statementId,
+			},
+			data: {
+				status: StatementStatus.SUBMITTED,
+			},
 		});
 
+		const { violation } = confirmAttempt;
+
 		return {
-			...createdStatement,
+			...updatedStatement,
 			car,
 			violation,
 		};
