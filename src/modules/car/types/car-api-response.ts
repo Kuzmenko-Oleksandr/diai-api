@@ -3,4 +3,10 @@ export type CarApiResponse = {
 	vendor: string;
 	model: string;
 	model_year: number;
+	operations: {
+		isLast: boolean;
+		color: {
+			ua: string;
+		};
+	}[];
 };

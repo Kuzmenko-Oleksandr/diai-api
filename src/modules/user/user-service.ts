@@ -1,6 +1,6 @@
 import { httpErrors } from "@fastify/sensible";
+import type { User } from "@prisma/client";
 import { prisma } from "@/db";
-import type { User } from "./types";
 
 export class UserService {
 	public static async getCurrent() {

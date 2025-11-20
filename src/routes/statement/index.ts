@@ -1,12 +1,15 @@
 import type { FastifyPluginAsync } from "fastify";
-import { StatementService } from "@/modules/statement";
-import { CreateStatementSchema } from "@/modules/statement/schemas/create-statement";
-import type { CreateStatementDto } from "@/modules/statement/types";
+import {
+	CreateStatementResponseSchema,
+	CreateStatementSchema,
+	StatementService,
+} from "@/modules/statement";
+import type { CreateStatementRequestDto } from "@/modules/statement/types";
 import { UserService } from "@/modules/user";
 
 const statement: FastifyPluginAsync = async (fastify, _opts): Promise<void> => {
 	fastify.post<{
-		Body: CreateStatementDto;
+		Body: CreateStatementRequestDto;
 	}>(
 		"/",
 		{
@@ -14,6 +17,9 @@ const statement: FastifyPluginAsync = async (fastify, _opts): Promise<void> => {
 				tags: ["Statement"],
 				consumes: ["multipart/form-data"],
 				body: CreateStatementSchema,
+				response: {
+					200: CreateStatementResponseSchema,
+				},
 			},
 			preValidation: (request, _reply, done) => {
 				const { images } = request.body;

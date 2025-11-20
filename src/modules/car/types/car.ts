@@ -3,4 +3,5 @@ export type Car = {
 	company: string;
 	model: string;
 	year: number;
+	color?: string;
 };

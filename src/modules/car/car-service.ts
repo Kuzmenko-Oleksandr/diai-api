@@ -6,13 +6,13 @@ type ErrorResponse = {
 };
 
 export class CarService {
-	private static apiBaseUrl = "https://baza-gai.com.ua/api";
+	private static apiBaseUrl = "https://baza-gai.com.ua";
 
-	public static async getDetails(number: Car["plate"]) {
-		const response = await fetch(`${CarService.apiBaseUrl}/nomer/${number}`, {
+	public static async getDetails(plate: Car["plate"]) {
+		const response = await fetch(`${CarService.apiBaseUrl}/nomer/${plate}`, {
 			method: "GET",
 			headers: {
-				"Content-Type": "application/json",
+				Accept: "application/json",
 				"X-Api-Key": process.env.BG_CARS_API_KEY ?? "",
 			},
 		});
@@ -24,10 +24,11 @@ export class CarService {
 		}
 
 		const mappedDetails: Car = {
-			...details,
+			model: details.model,
 			year: details.model_year,
 			company: details.vendor,
 			plate: details.digits,
+			color: details.operations.find((o) => o.isLast)?.color.ua,
 		};
 
 		return mappedDetails;

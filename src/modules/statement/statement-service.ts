@@ -1,10 +1,13 @@
 import { httpErrors } from "@fastify/sensible";
 import { prisma } from "@/db";
 import { AiRecognitionService } from "../ai-recognition";
-import type { CreateStatementDto } from "./types";
+import { CarService } from "../car";
+import type { CreateStatementRequestDto, CreateStatementResponseDto } from "./types";
 
 export class StatementService {
-	public static async create(statement: CreateStatementDto) {
+	public static async create(
+		statement: CreateStatementRequestDto,
+	): Promise<CreateStatementResponseDto> {
 		const { images } = statement;
 		const { results } = await AiRecognitionService.getPlateDetails(images);
 
@@ -22,6 +25,7 @@ export class StatementService {
 		}
 
 		const [{ plate }] = results;
+		const car = await CarService.getDetails(plate);
 
 		//TODO: add ai violation recognition
 		const createdStatement = await prisma.statement.create({
@@ -37,6 +41,18 @@ export class StatementService {
 			},
 		});
 
-		return { ...createdStatement };
+		const [{ violation }] = createdStatement.attempts;
+
+		console.log({
+			...createdStatement,
+			car,
+			violation,
+		});
+
+		return {
+			...createdStatement,
+			car,
+			violation,
+		};
 	}
 }
