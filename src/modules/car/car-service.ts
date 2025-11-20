@@ -8,7 +8,7 @@ type ErrorResponse = {
 export class CarService {
 	private static apiBaseUrl = "https://baza-gai.com.ua/api";
 
-	public static async getDetails(number: Car["number"]) {
+	public static async getDetails(number: Car["plate"]) {
 		const response = await fetch(`${CarService.apiBaseUrl}/nomer/${number}`, {
 			method: "GET",
 			headers: {
@@ -27,7 +27,7 @@ export class CarService {
 			...details,
 			year: details.model_year,
 			company: details.vendor,
-			number: details.digits,
+			plate: details.digits,
 		};
 
 		return mappedDetails;
