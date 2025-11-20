@@ -19,6 +19,8 @@ const statement: FastifyPluginAsync = async (fastify, _opts): Promise<void> => {
 				body: CreateStatementSchema,
 				response: {
 					200: CreateStatementResponseSchema,
+					"4xx": { $ref: "HttpError" },
+					500: { $ref: "HttpError" },
 				},
 			},
 			preValidation: (request, _reply, done) => {
