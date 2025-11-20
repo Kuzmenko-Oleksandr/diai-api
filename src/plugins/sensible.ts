@@ -5,5 +5,6 @@ import fp from "fastify-plugin";
 export default fp<FastifySensibleOptions>(async (fastify, opts) => {
 	await fastify.register(sensible, {
 		...opts,
+		sharedSchemaId: "HttpError",
 	});
 });

@@ -11,6 +11,7 @@ const user: FastifyPluginAsync = async (fastify, _opts): Promise<void> => {
 				description: "Retrieves the currently authenticated user",
 				response: {
 					200: UserSchema,
+					500: { $ref: "HttpError" },
 				},
 			},
 		},

@@ -1,0 +1,1 @@
+export { CarSchema } from "./car";

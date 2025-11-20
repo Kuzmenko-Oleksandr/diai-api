@@ -1,6 +1,7 @@
 export type Car = {
-	number: string;
+	plate: string;
 	company: string;
 	model: string;
 	year: number;
+	color?: string;
 };
