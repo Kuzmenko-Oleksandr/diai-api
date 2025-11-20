@@ -1,7 +1,5 @@
-import type { MultipartFile } from "@fastify/multipart";
-
 export type CreateStatementDto = {
-	images: MultipartFile[];
+	images: Buffer[];
 	longitude: number;
 	latitude: number;
 	userId: string;

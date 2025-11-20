@@ -6,17 +6,7 @@ import type { CreateStatementDto } from "./types";
 export class StatementService {
 	public static async create(statement: CreateStatementDto) {
 		const { images } = statement;
-
-		const imageFiles: File[] = await Promise.all(
-			images.map(async (image) => {
-				const bytes = await image.toBuffer();
-				const { filename, mimetype } = image;
-
-				return new File([bytes], filename, { type: mimetype });
-			}),
-		);
-
-		const { results } = await AiRecognitionService.getPlateDetails(imageFiles);
+		const { results } = await AiRecognitionService.getPlateDetails(images);
 
 		const isPlateRecognized = results.every((result) => result.success);
 		const arePlatesEqual = results.every((result) => result.plate === results[0].plate);
@@ -34,22 +24,19 @@ export class StatementService {
 		const [{ plate }] = results;
 
 		//TODO: add ai violation recognition
-		const createdAttempt = await prisma.statementAttempt.create({
+		const createdStatement = await prisma.statement.create({
 			data: {
-				...statement,
-				plate,
-				statement: {
-					create: {
-						...statement,
-					},
+				createdAt: statement.createdAt,
+				userId: statement.userId,
+				attempts: {
+					create: [{ latitude: statement.latitude, longitude: statement.longitude, plate }],
 				},
+			},
+			include: {
+				attempts: true,
 			},
 		});
 
-		const createdStatement = await prisma.statement.findFirst({
-			where: { id: createdAttempt.statementId },
-		});
-
-		return { ...createdStatement, ...createdAttempt };
+		return { ...createdStatement };
 	}
 }

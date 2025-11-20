@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { httpErrors } from "@fastify/sensible";
 import type { PlateRecognition } from "./types";
 
@@ -12,11 +13,11 @@ type SuccessResponse = {
 export class AiRecognitionService {
 	private static apiBaseUrl = "https://pzjururmgg.eu-west-1.awsapprunner.com";
 
-	public static async getPlateDetails(files: File[]) {
+	public static async getPlateDetails(files: Buffer[]) {
 		const form = new FormData();
 
 		for (const file of files) {
-			form.append("images", file, file.name);
+			form.append("images", new Blob([file]), `${randomUUID()}.png`);
 		}
 
 		const response = await fetch(`${AiRecognitionService.apiBaseUrl}/plates/recognize-two`, {

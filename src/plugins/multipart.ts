@@ -4,6 +4,6 @@ import fp from "fastify-plugin";
 
 export default fp<FastifyMultipartOptions>(async (fastify, _opts) => {
 	await fastify.register(multipart, {
-		attachFieldsToBody: true,
+		attachFieldsToBody: "keyValues",
 	});
 });
