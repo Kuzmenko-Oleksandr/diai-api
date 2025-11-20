@@ -10,7 +10,8 @@ import type {
 	CreateStatementResponseDto,
 } from "./types";
 
-const MINUTES_INTERVAL = 5;
+// TODO: update interval to 5 mins after testing
+const MINUTES_INTERVAL = 1;
 
 export class StatementService {
 	private static async getValidatedPlate(images: CreateStatementRequestDto["images"]) {
