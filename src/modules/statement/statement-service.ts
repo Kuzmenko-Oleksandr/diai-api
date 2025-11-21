@@ -1,9 +1,10 @@
 import { httpErrors } from "@fastify/sensible";
-import { StatementStatus } from "@prisma/client";
+import { type Statement, StatementStatus } from "@prisma/client";
 import { hasTimePassed } from "@/common/utils/has-time-passed";
 import { prisma } from "@/db";
 import { AiRecognitionService } from "../ai-recognition";
 import { CarService } from "../car";
+import { LocationService } from "../location";
 import type {
 	CancelStatementRequestDto,
 	ConfirmStatementRequestDto,
@@ -13,6 +14,7 @@ import type {
 
 // TODO: update interval to 5 mins after testing
 const MINUTES_INTERVAL = 1;
+const VALID_METERS_DISTANCE = 10;
 
 export class StatementService {
 	private static async getValidatedPlate(images: CreateStatementRequestDto["images"]) {
@@ -82,10 +84,19 @@ export class StatementService {
 			);
 		}
 
-		const isStatementDataEqual =
-			Number.parseFloat(String(latitude)) === Number.parseFloat(String(firstAttempt.latitude)) &&
-			Number.parseFloat(String(longitude)) === Number.parseFloat(String(firstAttempt.longitude)) &&
-			plate === firstAttempt.plate;
+		const isLocationEqual =
+			LocationService.getDistance({
+				startPoint: {
+					latitude: Number.parseFloat(String(firstAttempt.latitude)),
+					longitude: Number.parseFloat(String(firstAttempt.longitude)),
+				},
+				endPoint: {
+					latitude: Number.parseFloat(String(latitude)),
+					longitude: Number.parseFloat(String(longitude)),
+				},
+			}) <= VALID_METERS_DISTANCE;
+
+		const isStatementDataEqual = plate === firstAttempt.plate && isLocationEqual;
 
 		if (!isStatementDataEqual) {
 			await prisma.statement.update({
@@ -140,14 +151,60 @@ export class StatementService {
 		};
 	}
 
-	public static async confirm(
-		statement: ConfirmStatementRequestDto,
-	): Promise<CreateStatementResponseDto> {
+	public static async confirm(statement: ConfirmStatementRequestDto) {
 		const { images, statementId } = statement;
 		const plate = await StatementService.getValidatedPlate(images);
 		const car = await CarService.getDetails(plate);
 
 		const confirmAttempt = await StatementService.getValidatedConfirmAttempt(statement, plate);
+
+		const existingStatement = (await prisma.statement.findFirst({
+			where: {
+				id: statementId,
+				status: StatementStatus.PENDING,
+			},
+		})) as Statement;
+
+		const { violation, latitude, longitude } = confirmAttempt;
+		const location = await LocationService.getAddressFromCoordinates({
+			latitude: Number(latitude),
+			longitude: Number(longitude),
+		});
+
+		return {
+			...existingStatement,
+			car,
+			violation,
+			location,
+		};
+	}
+
+	public static async submit({ statementId, userId }: CancelStatementRequestDto) {
+		const existingStatement = await prisma.statement.findFirst({
+			where: {
+				id: statementId,
+				status: StatementStatus.PENDING,
+			},
+			include: {
+				attempts: {
+					orderBy: {
+						createdAt: "asc",
+					},
+					where: {
+						NOT: { plate: null },
+						error: null,
+					},
+				},
+			},
+		});
+
+		if (!existingStatement) {
+			throw httpErrors.notFound("Заяву для надсилання не знайдено");
+		}
+
+		if (existingStatement.userId !== userId) {
+			throw httpErrors.forbidden("Тільки автор заяви може надіслати її");
+		}
 
 		const updatedStatement = await prisma.statement.update({
 			where: {
@@ -158,7 +215,8 @@ export class StatementService {
 			},
 		});
 
-		const { violation } = confirmAttempt;
+		const [{ violation, plate }] = existingStatement.attempts;
+		const car = await CarService.getDetails(plate ?? "");
 
 		return {
 			...updatedStatement,

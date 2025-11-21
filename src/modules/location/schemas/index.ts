@@ -1,0 +1,1 @@
+export { LocationSchema } from "./location";

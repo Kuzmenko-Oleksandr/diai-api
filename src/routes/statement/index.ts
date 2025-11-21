@@ -5,6 +5,7 @@ import type { IdParam } from "@/common/types/id-param";
 import type { UserIdQuery } from "@/common/types/user-id-query";
 import {
 	CancelStatementSchema,
+	ConfirmStatementResponseSchema,
 	ConfirmStatementSchema,
 	CreateStatementResponseSchema,
 	CreateStatementSchema,
@@ -62,7 +63,7 @@ const statement: FastifyPluginAsync = async (fastify, _opts): Promise<void> => {
 				body: ConfirmStatementSchema,
 				params: IdParamSchema,
 				response: {
-					200: CreateStatementResponseSchema,
+					200: ConfirmStatementResponseSchema,
 					"4xx": { $ref: "HttpError" },
 					500: { $ref: "HttpError" },
 				},
@@ -106,6 +107,33 @@ const statement: FastifyPluginAsync = async (fastify, _opts): Promise<void> => {
 		},
 		async (req, _reply) => {
 			return await StatementService.cancel({ ...req.body, statementId: req.params.id });
+		},
+	);
+
+	fastify.patch<{
+		Body: Omit<CancelStatementRequestDto, "statementId">;
+		Params: IdParam;
+	}>(
+		"/submit/:id",
+		{
+			schema: {
+				tags: ["Statement"],
+				description: "Submit statement",
+				body: CancelStatementSchema,
+				params: IdParamSchema,
+				response: {
+					200: CreateStatementResponseSchema,
+					"4xx": { $ref: "HttpError" },
+					500: { $ref: "HttpError" },
+				},
+			},
+			preHandler: async (request) => {
+				const { userId } = request.body;
+				await UserService.validate(userId);
+			},
+		},
+		async (req, _reply) => {
+			return await StatementService.submit({ ...req.body, statementId: req.params.id });
 		},
 	);
 
