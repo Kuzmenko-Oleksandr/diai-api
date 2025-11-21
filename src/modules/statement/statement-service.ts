@@ -53,6 +53,7 @@ export class StatementService {
 						createdAt: "asc",
 					},
 					where: {
+						NOT: { plate: null },
 						error: null,
 					},
 				},
@@ -177,9 +178,7 @@ export class StatementService {
 			include: {
 				attempts: {
 					where: {
-						NOT: {
-							plate: null,
-						},
+						NOT: { plate: null },
 						error: null,
 					},
 				},
@@ -208,5 +207,50 @@ export class StatementService {
 			car,
 			violation,
 		};
+	}
+
+	public static async getWithDetailsById(id: string, userId: string) {
+		const existingStatement = await prisma.statement.findFirst({
+			where: {
+				id,
+				status: StatementStatus.PENDING,
+			},
+			include: {
+				attempts: {
+					where: {
+						NOT: { plate: null },
+						error: null,
+					},
+				},
+			},
+		});
+
+		if (!existingStatement) {
+			throw httpErrors.notFound("Заяву не знайдено");
+		}
+
+		if (existingStatement.userId !== userId) {
+			throw httpErrors.forbidden("Тільки автор заяви може оновити її");
+		}
+
+		const [{ violation, plate }] = existingStatement.attempts;
+
+		const car = await CarService.getDetails(plate ?? "");
+
+		return {
+			...existingStatement,
+			car,
+			violation,
+		};
+	}
+
+	public static async getAllWithDetails(userId: string) {
+		const statements = await prisma.statement.findMany({ where: { userId }, select: { id: true } });
+
+		const statementsWithDetails = await Promise.all(
+			statements.map(({ id }) => StatementService.getWithDetailsById(id, userId)),
+		);
+
+		return statementsWithDetails;
 	}
 }
