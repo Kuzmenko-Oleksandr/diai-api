@@ -1,2 +1,3 @@
 export { LocationService } from "./location-service";
-export type { Coordinate } from "./types";
+export * from "./schemas";
+export * from "./types";
