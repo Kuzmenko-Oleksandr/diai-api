@@ -3,6 +3,7 @@ import { type Statement, StatementStatus } from "@prisma/client";
 import { hasTimePassed } from "@/common/utils/has-time-passed";
 import { prisma } from "@/db";
 import { AiRecognitionService } from "../ai-recognition";
+import type { Violation } from "../ai-recognition/enums/violation";
 import { CarService } from "../car";
 import { LocationService } from "../location";
 import type {
@@ -18,7 +19,7 @@ const VALID_METERS_DISTANCE = 10;
 
 export class StatementService {
 	private static async getValidatedPlate(images: CreateStatementRequestDto["images"]) {
-		const { results } = await AiRecognitionService.getPlateDetails(images);
+		const { results } = await AiRecognitionService.getViolationDetails(images);
 
 		const isPlateRecognized = results.every((result) => result.success);
 		const arePlatesEqual = results.every((result) => result.plate === results[0].plate);
@@ -33,15 +34,20 @@ export class StatementService {
 			throw httpErrors.badRequest("Номерні знаки не співпадають. Спробуйте ще раз");
 		}
 
-		const [{ plate }] = results;
+		const [{ plate, sign }] = results;
 
-		return plate;
+		return { plate, violation: sign.class_name };
 	}
 
-	private static async getValidatedConfirmAttempt(
-		statement: ConfirmStatementRequestDto,
-		plate: string,
-	) {
+	private static async getValidatedConfirmAttempt({
+		statement,
+		plate,
+		violation,
+	}: {
+		statement: ConfirmStatementRequestDto;
+		plate: string;
+		violation: Violation | null;
+	}) {
 		const { statementId, userId, createdAt, latitude, longitude } = statement;
 
 		const existingStatement = await prisma.statement.findFirst({
@@ -96,7 +102,8 @@ export class StatementService {
 				},
 			}) <= VALID_METERS_DISTANCE;
 
-		const isStatementDataEqual = plate === firstAttempt.plate && isLocationEqual;
+		const isStatementDataEqual =
+			plate === firstAttempt.plate && violation === firstAttempt.violation && isLocationEqual;
 
 		if (!isStatementDataEqual) {
 			await prisma.statement.update({
@@ -125,8 +132,12 @@ export class StatementService {
 		statement: CreateStatementRequestDto,
 	): Promise<CreateStatementResponseDto> {
 		const { images } = statement;
-		const plate = await StatementService.getValidatedPlate(images);
+		const { plate, violation } = await StatementService.getValidatedPlate(images);
 		const car = await CarService.getDetails(plate);
+
+		if (!violation) {
+			throw httpErrors.badRequest("Порушення не знайдено");
+		}
 
 		//TODO: add ai violation recognition
 		const createdStatement = await prisma.statement.create({
@@ -134,15 +145,15 @@ export class StatementService {
 				createdAt: statement.createdAt,
 				userId: statement.userId,
 				attempts: {
-					create: [{ latitude: statement.latitude, longitude: statement.longitude, plate }],
+					create: [
+						{ latitude: statement.latitude, longitude: statement.longitude, plate, violation },
+					],
 				},
 			},
 			include: {
 				attempts: true,
 			},
 		});
-
-		const [{ violation }] = createdStatement.attempts;
 
 		return {
 			...createdStatement,
@@ -153,10 +164,15 @@ export class StatementService {
 
 	public static async confirm(statement: ConfirmStatementRequestDto) {
 		const { images, statementId } = statement;
-		const plate = await StatementService.getValidatedPlate(images);
+		const { plate, violation } = await StatementService.getValidatedPlate(images);
+
 		const car = await CarService.getDetails(plate);
 
-		const confirmAttempt = await StatementService.getValidatedConfirmAttempt(statement, plate);
+		const confirmAttempt = await StatementService.getValidatedConfirmAttempt({
+			statement,
+			plate,
+			violation,
+		});
 
 		const existingStatement = (await prisma.statement.findFirst({
 			where: {
@@ -165,7 +181,7 @@ export class StatementService {
 			},
 		})) as Statement;
 
-		const { violation, latitude, longitude } = confirmAttempt;
+		const { latitude, longitude } = confirmAttempt;
 		const location = await LocationService.getAddressFromCoordinates({
 			latitude: Number(latitude),
 			longitude: Number(longitude),
