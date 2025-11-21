@@ -2,6 +2,7 @@ import { httpErrors } from "@fastify/sensible";
 import { StatementStatus } from "@prisma/client";
 import { hasTimePassed } from "@/common/utils/has-time-passed";
 import { prisma } from "@/db";
+import { AddressService } from "../address";
 import { AiRecognitionService } from "../ai-recognition";
 import { CarService } from "../car";
 import type {
@@ -13,6 +14,7 @@ import type {
 
 // TODO: update interval to 5 mins after testing
 const MINUTES_INTERVAL = 1;
+const VALID_METERS_DISTANCE = 10;
 
 export class StatementService {
 	private static async getValidatedPlate(images: CreateStatementRequestDto["images"]) {
@@ -82,10 +84,19 @@ export class StatementService {
 			);
 		}
 
-		const isStatementDataEqual =
-			Number.parseFloat(String(latitude)) === Number.parseFloat(String(firstAttempt.latitude)) &&
-			Number.parseFloat(String(longitude)) === Number.parseFloat(String(firstAttempt.longitude)) &&
-			plate === firstAttempt.plate;
+		const isLocationEqual =
+			AddressService.getDistance({
+				startPoint: {
+					latitude: Number.parseFloat(String(firstAttempt.latitude)),
+					longitude: Number.parseFloat(String(firstAttempt.longitude)),
+				},
+				endPoint: {
+					latitude: Number.parseFloat(String(latitude)),
+					longitude: Number.parseFloat(String(longitude)),
+				},
+			}) <= VALID_METERS_DISTANCE;
+
+		const isStatementDataEqual = plate === firstAttempt.plate && isLocationEqual;
 
 		if (!isStatementDataEqual) {
 			await prisma.statement.update({
