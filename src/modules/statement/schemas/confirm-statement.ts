@@ -14,10 +14,6 @@ export const ConfirmStatementSchema = Type.Object({
 		description: "User ID",
 		minLength: 1,
 	}),
-	statementId: Type.String({
-		description: "Statement ID",
-		minLength: 1,
-	}),
 	createdAt: Type.String({
 		format: "date-time",
 	}),

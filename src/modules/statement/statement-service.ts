@@ -5,6 +5,7 @@ import { prisma } from "@/db";
 import { AiRecognitionService } from "../ai-recognition";
 import { CarService } from "../car";
 import type {
+	CancelStatementRequestDto,
 	ConfirmStatementRequestDto,
 	CreateStatementRequestDto,
 	CreateStatementResponseDto,
@@ -157,6 +158,50 @@ export class StatementService {
 		});
 
 		const { violation } = confirmAttempt;
+
+		return {
+			...updatedStatement,
+			car,
+			violation,
+		};
+	}
+
+	public static async cancel({ statementId, userId }: CancelStatementRequestDto) {
+		const existingStatement = await prisma.statement.findFirst({
+			where: {
+				id: statementId,
+				status: {
+					notIn: [StatementStatus.REFUSED, StatementStatus.CANCELED],
+				},
+			},
+			include: {
+				attempts: {
+					where: {
+						NOT: {
+							plate: null,
+						},
+						error: null,
+					},
+				},
+			},
+		});
+
+		if (!existingStatement) {
+			throw httpErrors.notFound("Заяву для скасування не знайдено");
+		}
+
+		if (existingStatement.userId !== userId) {
+			throw httpErrors.forbidden("Тільки автор заяви може скасувати її");
+		}
+
+		const [{ violation, plate }] = existingStatement.attempts;
+
+		const car = await CarService.getDetails(plate ?? "");
+
+		const updatedStatement = await prisma.statement.update({
+			where: { id: existingStatement.id },
+			data: { status: StatementStatus.CANCELED },
+		});
 
 		return {
 			...updatedStatement,
