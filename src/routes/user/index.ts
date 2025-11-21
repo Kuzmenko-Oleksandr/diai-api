@@ -8,9 +8,10 @@ const user: FastifyPluginAsync = async (fastify, _opts): Promise<void> => {
 			schema: {
 				tags: ["User"],
 				summary: "Get current user",
-				description: "Retrieves the currently authenticated user",
+				description: "Retrieves the currently (mocked) authenticated user",
 				response: {
 					200: UserSchema,
+					"4xx": { $ref: "HttpError" },
 					500: { $ref: "HttpError" },
 				},
 			},
