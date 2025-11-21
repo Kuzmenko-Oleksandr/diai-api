@@ -85,8 +85,15 @@ export class StatementService {
 			longitude === firstAttempt.longitude &&
 			plate === firstAttempt.plate;
 
-		if (isStatementDataEqual) {
-			throw httpErrors.badRequest("Дані для підтвердження заяви повинні збігатись");
+		if (!isStatementDataEqual) {
+			await prisma.statement.update({
+				where: { id: existingStatement.id },
+				data: { status: StatementStatus.REFUSED },
+			});
+
+			throw httpErrors.badRequest(
+				"Дані для підтвердження заяви повинні збігатись. Заяву відхилено",
+			);
 		}
 
 		const confirmAttempt = await prisma.statementAttempt.create({
