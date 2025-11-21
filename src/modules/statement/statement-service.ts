@@ -83,8 +83,8 @@ export class StatementService {
 		}
 
 		const isStatementDataEqual =
-			latitude === firstAttempt.latitude &&
-			longitude === firstAttempt.longitude &&
+			Number.parseFloat(String(latitude)) === Number.parseFloat(String(firstAttempt.latitude)) &&
+			Number.parseFloat(String(longitude)) === Number.parseFloat(String(firstAttempt.longitude)) &&
 			plate === firstAttempt.plate;
 
 		if (!isStatementDataEqual) {
@@ -209,11 +209,11 @@ export class StatementService {
 		};
 	}
 
-	public static async getWithDetailsById(id: string, userId: string) {
+	public static async getWithDetailsById({ statementId, userId }: CancelStatementRequestDto) {
 		const existingStatement = await prisma.statement.findFirst({
 			where: {
-				id,
-				status: StatementStatus.PENDING,
+				id: statementId,
+				userId,
 			},
 			include: {
 				attempts: {
@@ -229,10 +229,6 @@ export class StatementService {
 			throw httpErrors.notFound("Заяву не знайдено");
 		}
 
-		if (existingStatement.userId !== userId) {
-			throw httpErrors.forbidden("Тільки автор заяви може оновити її");
-		}
-
 		const [{ violation, plate }] = existingStatement.attempts;
 
 		const car = await CarService.getDetails(plate ?? "");
@@ -244,11 +240,11 @@ export class StatementService {
 		};
 	}
 
-	public static async getAllWithDetails(userId: string) {
+	public static async getAllWithDetails({ userId }: { userId: string }) {
 		const statements = await prisma.statement.findMany({ where: { userId }, select: { id: true } });
 
 		const statementsWithDetails = await Promise.all(
-			statements.map(({ id }) => StatementService.getWithDetailsById(id, userId)),
+			statements.map(({ id }) => StatementService.getWithDetailsById({ statementId: id, userId })),
 		);
 
 		return statementsWithDetails;
