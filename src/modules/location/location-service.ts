@@ -58,11 +58,15 @@ export class LocationService {
 		if ("error" in data) {
 			return {
 				address: "Не вдалось розпізнати адресу",
+				latitude,
+				longitude,
 			};
 		}
 
 		return {
 			address: data.display_name,
+			latitude,
+			longitude,
 		};
 	}
 }
