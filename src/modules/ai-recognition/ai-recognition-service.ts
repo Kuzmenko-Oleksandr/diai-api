@@ -13,7 +13,7 @@ type SuccessResponse = {
 export class AiRecognitionService {
 	private static apiBaseUrl = "https://pzjururmgg.eu-west-1.awsapprunner.com";
 
-	public static async getPlateDetails(files: Buffer[]) {
+	public static async getViolationDetails(files: Buffer[]) {
 		const form = new FormData();
 
 		for (const file of files) {
@@ -36,6 +36,4 @@ export class AiRecognitionService {
 
 		return plateDetails;
 	}
-
-	public static async getViolation() {}
 }
