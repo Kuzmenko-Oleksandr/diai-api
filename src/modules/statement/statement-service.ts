@@ -2,7 +2,7 @@ import { httpErrors } from "@fastify/sensible";
 import { StatementStatus } from "@prisma/client";
 import { hasTimePassed } from "@/common/utils/has-time-passed";
 import { prisma } from "@/db";
-import { AddressService } from "../address";
+import { LocationService } from "../address";
 import { AiRecognitionService } from "../ai-recognition";
 import { CarService } from "../car";
 import type {
@@ -85,7 +85,7 @@ export class StatementService {
 		}
 
 		const isLocationEqual =
-			AddressService.getDistance({
+			LocationService.getDistance({
 				startPoint: {
 					latitude: Number.parseFloat(String(firstAttempt.latitude)),
 					longitude: Number.parseFloat(String(firstAttempt.longitude)),
