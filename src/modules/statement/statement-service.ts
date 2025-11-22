@@ -323,4 +323,35 @@ export class StatementService {
 
 		return statementsWithDetails;
 	}
+
+	public static async removeById({ statementId, userId }: CancelStatementRequestDto) {
+		const existingStatement = await prisma.statement.findFirst({
+			where: { id: statementId, userId },
+			select: { id: true },
+		});
+
+		if (!existingStatement) {
+			return null;
+		}
+
+		await prisma.statementAttempt.deleteMany({
+			where: { statementId },
+		});
+
+		const { id } = await prisma.statement.delete({ where: { id: statementId, userId } });
+
+		return { id };
+	}
+
+	public static async removeAll({ userId }: { userId: string }) {
+		await prisma.statementAttempt.deleteMany({
+			where: {
+				statement: { userId },
+			},
+		});
+
+		const statements = await prisma.statement.deleteMany({ where: { userId } });
+
+		return statements.count;
+	}
 }
