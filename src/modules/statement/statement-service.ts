@@ -34,9 +34,10 @@ export class StatementService {
 			throw httpErrors.badRequest("Номерні знаки не співпадають. Спробуйте ще раз");
 		}
 
-		const [{ plate, sign }] = results;
+		const [{ plate }] = results;
+		const { sign } = results.find((r) => !!r.sign.class_name) ?? {};
 
-		return { plate, violation: sign.class_name };
+		return { plate, violation: sign?.class_name ?? null };
 	}
 
 	private static async getValidatedConfirmAttempt({
