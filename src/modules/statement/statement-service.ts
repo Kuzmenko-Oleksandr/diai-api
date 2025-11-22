@@ -139,19 +139,34 @@ export class StatementService {
 			throw httpErrors.badRequest("Порушення не знайдено");
 		}
 
-		//TODO: add ai violation recognition
 		const createdStatement = await prisma.statement.create({
 			data: {
 				createdAt: statement.createdAt,
 				userId: statement.userId,
 				attempts: {
 					create: [
-						{ latitude: statement.latitude, longitude: statement.longitude, plate, violation },
+						{
+							latitude: statement.latitude,
+							longitude: statement.longitude,
+							plate,
+							violation,
+							car: {
+								create: {
+									plate: car.plate,
+									company: car.company,
+									model: car.model,
+									year: car.year,
+									color: car.color,
+								},
+							},
+						},
 					],
 				},
 			},
 			include: {
-				attempts: true,
+				attempts: {
+					include: { car: true },
+				},
 			},
 		});
 
@@ -172,6 +187,17 @@ export class StatementService {
 			statement,
 			plate,
 			violation,
+		});
+
+		await prisma.car.create({
+			data: {
+				plate: car.plate,
+				company: car.company,
+				model: car.model,
+				year: car.year,
+				color: car.color,
+				statementAttemptId: confirmAttempt.id,
+			},
 		});
 
 		const existingStatement = (await prisma.statement.findFirst({
@@ -295,6 +321,7 @@ export class StatementService {
 						NOT: { plate: null },
 						error: null,
 					},
+					include: { car: true },
 				},
 			},
 		});
@@ -303,13 +330,11 @@ export class StatementService {
 			throw httpErrors.notFound("Заяву не знайдено");
 		}
 
-		const [{ violation, plate }] = existingStatement.attempts;
-
-		const car = await CarService.getDetails(plate ?? "");
+		const [{ violation }] = existingStatement.attempts;
 
 		return {
 			...existingStatement,
-			car,
+			car: existingStatement.attempts[0].car,
 			violation,
 		};
 	}
@@ -322,5 +347,36 @@ export class StatementService {
 		);
 
 		return statementsWithDetails;
+	}
+
+	public static async removeById({ statementId, userId }: CancelStatementRequestDto) {
+		const existingStatement = await prisma.statement.findFirst({
+			where: { id: statementId, userId },
+			select: { id: true },
+		});
+
+		if (!existingStatement) {
+			return null;
+		}
+
+		await prisma.statementAttempt.deleteMany({
+			where: { statementId },
+		});
+
+		const { id } = await prisma.statement.delete({ where: { id: statementId, userId } });
+
+		return { id };
+	}
+
+	public static async removeAll({ userId }: { userId: string }) {
+		await prisma.statementAttempt.deleteMany({
+			where: {
+				statement: { userId },
+			},
+		});
+
+		const statements = await prisma.statement.deleteMany({ where: { userId } });
+
+		return statements.count;
 	}
 }

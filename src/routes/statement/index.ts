@@ -191,6 +191,63 @@ const statement: FastifyPluginAsync = async (fastify, _opts): Promise<void> => {
 			});
 		},
 	);
+
+	fastify.delete<{
+		Querystring: UserIdQuery;
+		Params: IdParam;
+	}>(
+		"/:id",
+		{
+			schema: {
+				tags: ["Statement"],
+				description: "Delete statement by ID",
+				querystring: CancelStatementSchema,
+				params: IdParamSchema,
+				response: {
+					200: IdParamSchema,
+					"4xx": { $ref: "HttpError" },
+					500: { $ref: "HttpError" },
+				},
+			},
+			preHandler: async (request) => {
+				const { userId } = request.query;
+				await UserService.validate(userId);
+			},
+		},
+		async (req, _reply) => {
+			return await StatementService.removeById({
+				...req.query,
+				statementId: req.params.id,
+			});
+		},
+	);
+
+	fastify.delete<{
+		Querystring: UserIdQuery;
+	}>(
+		"/",
+		{
+			schema: {
+				tags: ["Statement"],
+				description: "Delete all statements",
+				querystring: CancelStatementSchema,
+				response: {
+					200: Type.Number(),
+					"4xx": { $ref: "HttpError" },
+					500: { $ref: "HttpError" },
+				},
+			},
+			preHandler: async (request) => {
+				const { userId } = request.query;
+				await UserService.validate(userId);
+			},
+		},
+		async (req, _reply) => {
+			return await StatementService.removeAll({
+				...req.query,
+			});
+		},
+	);
 };
 
 export default statement;
