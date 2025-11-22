@@ -41,14 +41,13 @@ export class StatementService {
 
 	private static async getValidatedConfirmAttempt({
 		statement,
-		car,
+		plate,
 		violation,
 	}: {
 		statement: ConfirmStatementRequestDto;
-		car: Car;
+		plate: string;
 		violation: Violation | null;
 	}) {
-		const { plate } = car;
 		const { statementId, userId, createdAt, latitude, longitude } = statement;
 
 		const existingStatement = await prisma.statement.findFirst({
@@ -65,6 +64,9 @@ export class StatementService {
 						NOT: { plate: null },
 						error: null,
 					},
+					include: {
+						car: true,
+					},
 				},
 			},
 		});
@@ -78,6 +80,7 @@ export class StatementService {
 		}
 
 		const [firstAttempt] = existingStatement.attempts;
+		const car = firstAttempt.car as Car;
 
 		const canConfirm = hasTimePassed({
 			startDate: new Date(firstAttempt.createdAt),
@@ -134,6 +137,9 @@ export class StatementService {
 						color: car.color,
 					},
 				},
+			},
+			include: {
+				car: true,
 			},
 		});
 
@@ -193,11 +199,9 @@ export class StatementService {
 		const { images, statementId } = statement;
 		const { plate, violation } = await StatementService.getValidatedPlate(images);
 
-		const car = await CarService.getDetails(plate);
-
 		const confirmAttempt = await StatementService.getValidatedConfirmAttempt({
 			statement,
-			car,
+			plate,
 			violation,
 		});
 
@@ -208,7 +212,7 @@ export class StatementService {
 			},
 		})) as Statement;
 
-		const { latitude, longitude } = confirmAttempt;
+		const { latitude, longitude, car } = confirmAttempt;
 		const location = await LocationService.getAddressFromCoordinates({
 			latitude: Number(latitude),
 			longitude: Number(longitude),
@@ -237,6 +241,9 @@ export class StatementService {
 						NOT: { plate: null },
 						error: null,
 					},
+					include: {
+						car: true,
+					},
 				},
 			},
 		});
@@ -258,8 +265,7 @@ export class StatementService {
 			},
 		});
 
-		const [{ violation, plate }] = existingStatement.attempts;
-		const car = await CarService.getDetails(plate ?? "");
+		const [{ violation, car }] = existingStatement.attempts;
 
 		return {
 			...updatedStatement,
@@ -282,6 +288,9 @@ export class StatementService {
 						NOT: { plate: null },
 						error: null,
 					},
+					include: {
+						car: true,
+					},
 				},
 			},
 		});
@@ -294,9 +303,7 @@ export class StatementService {
 			throw httpErrors.forbidden("Тільки автор заяви може скасувати її");
 		}
 
-		const [{ violation, plate }] = existingStatement.attempts;
-
-		const car = await CarService.getDetails(plate ?? "");
+		const [{ violation, plate, car }] = existingStatement.attempts;
 
 		const updatedStatement = await prisma.statement.update({
 			where: { id: existingStatement.id },
