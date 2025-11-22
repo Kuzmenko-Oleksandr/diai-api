@@ -54,4 +54,16 @@ model StatementAttempt {
   createdAt   DateTime  @default(now())
   statement   Statement @relation(fields: [statementId], references: [id])
   statementId String
+  car         Car?
+}
+
+model Car {
+  id                 String           @id @default(uuid())
+  plate              String?
+  company            String
+  model              String
+  year               Int
+  color              String?
+  statementAttempt   StatementAttempt @relation(fields: [statementAttemptId], references: [id])
+  statementAttemptId String           @unique
 }
