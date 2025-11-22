@@ -40,7 +40,7 @@ model Statement {
   userId    String
   createdAt DateTime           @default(now())
   updatedAt DateTime           @updatedAt
-  user      User               @relation(fields: [userId], references: [id])
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   attempts  StatementAttempt[]
 }
 
@@ -52,7 +52,7 @@ model StatementAttempt {
   longitude   Decimal
   latitude    Decimal
   createdAt   DateTime  @default(now())
-  statement   Statement @relation(fields: [statementId], references: [id])
+  statement   Statement @relation(fields: [statementId], references: [id], onDelete: Cascade)
   statementId String
   car         Car?
 }
@@ -64,6 +64,6 @@ model Car {
   model              String
   year               Int
   color              String?
-  statementAttempt   StatementAttempt @relation(fields: [statementAttemptId], references: [id])
+  statementAttempt   StatementAttempt @relation(fields: [statementAttemptId], references: [id], onDelete: Cascade)
   statementAttemptId String           @unique
 }

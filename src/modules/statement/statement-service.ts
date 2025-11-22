@@ -95,7 +95,6 @@ export class StatementService {
 			);
 		}
 
-		// TODO: add location comparison
 		const isLocationEqual =
 			LocationService.getDistance({
 				startPoint: {
@@ -109,7 +108,7 @@ export class StatementService {
 			}) <= VALID_METERS_DISTANCE;
 
 		const isStatementDataEqual =
-			plate === firstAttempt.plate && violation === firstAttempt.violation;
+			plate === firstAttempt.plate && violation === firstAttempt.violation && isLocationEqual;
 
 		if (!isStatementDataEqual) {
 			await prisma.statement.update({
@@ -304,7 +303,7 @@ export class StatementService {
 			throw httpErrors.forbidden("Тільки автор заяви може скасувати її");
 		}
 
-		const [{ violation, plate, car }] = existingStatement.attempts;
+		const [{ violation, car }] = existingStatement.attempts;
 
 		const updatedStatement = await prisma.statement.update({
 			where: { id: existingStatement.id },
@@ -368,22 +367,12 @@ export class StatementService {
 			return null;
 		}
 
-		await prisma.statementAttempt.deleteMany({
-			where: { statementId },
-		});
-
 		const { id } = await prisma.statement.delete({ where: { id: statementId, userId } });
 
 		return { id };
 	}
 
 	public static async removeAll({ userId }: { userId: string }) {
-		await prisma.statementAttempt.deleteMany({
-			where: {
-				statement: { userId },
-			},
-		});
-
 		const statements = await prisma.statement.deleteMany({ where: { userId } });
 
 		return statements.count;
