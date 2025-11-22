@@ -4,7 +4,7 @@ import { hasTimePassed } from "@/common/utils/has-time-passed";
 import { prisma } from "@/db";
 import { AiRecognitionService } from "../ai-recognition";
 import type { Violation } from "../ai-recognition/enums/violation";
-import { CarService } from "../car";
+import { type Car, CarService } from "../car";
 import { LocationService } from "../location";
 import type {
 	CancelStatementRequestDto,
@@ -41,13 +41,14 @@ export class StatementService {
 
 	private static async getValidatedConfirmAttempt({
 		statement,
-		plate,
+		car,
 		violation,
 	}: {
 		statement: ConfirmStatementRequestDto;
-		plate: string;
+		car: Car;
 		violation: Violation | null;
 	}) {
+		const { plate } = car;
 		const { statementId, userId, createdAt, latitude, longitude } = statement;
 
 		const existingStatement = await prisma.statement.findFirst({
@@ -90,6 +91,7 @@ export class StatementService {
 			);
 		}
 
+		// TODO: add location comparison
 		const isLocationEqual =
 			LocationService.getDistance({
 				startPoint: {
@@ -103,7 +105,7 @@ export class StatementService {
 			}) <= VALID_METERS_DISTANCE;
 
 		const isStatementDataEqual =
-			plate === firstAttempt.plate && violation === firstAttempt.violation && isLocationEqual;
+			plate === firstAttempt.plate && violation === firstAttempt.violation;
 
 		if (!isStatementDataEqual) {
 			await prisma.statement.update({
@@ -123,6 +125,15 @@ export class StatementService {
 				longitude: statement.longitude,
 				plate,
 				violation,
+				car: {
+					create: {
+						plate: car.plate,
+						company: car.company,
+						model: car.model,
+						year: car.year,
+						color: car.color,
+					},
+				},
 			},
 		});
 
@@ -186,19 +197,8 @@ export class StatementService {
 
 		const confirmAttempt = await StatementService.getValidatedConfirmAttempt({
 			statement,
-			plate,
+			car,
 			violation,
-		});
-
-		await prisma.car.create({
-			data: {
-				plate: car.plate,
-				company: car.company,
-				model: car.model,
-				year: car.year,
-				color: car.color,
-				statementAttemptId: confirmAttempt.id,
-			},
 		});
 
 		const existingStatement = (await prisma.statement.findFirst({
