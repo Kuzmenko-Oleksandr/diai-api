@@ -122,6 +122,7 @@ export class StatementService {
 				latitude: statement.latitude,
 				longitude: statement.longitude,
 				plate,
+				violation,
 			},
 		});
 
